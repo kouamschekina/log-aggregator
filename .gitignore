@@ -1,0 +1,34 @@
+# IDEs and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Go app binaries
+/app/log-generator
+*.exe
+*.test
+
+# Downloaded Binaries (e.g., Kubernetes tools)
+kubectl
+kubectl.sha256
+minikube
+kind
+helm
+
+# Docker / Local Data Volumes (in case you mount them locally later)
+loki-data/
+grafana-data/
+data/
+
+# General logs
+*.log
