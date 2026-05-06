@@ -58,7 +58,7 @@ spec:
         - containerPort: 3100
           name: http-metrics
         args:
-        - -config.file=/etc/loki/local-config.yaml
+        - -config.file=/etc/loki/loki.yaml
         volumeMounts:
         - name: loki-config
           mountPath: /etc/loki/
