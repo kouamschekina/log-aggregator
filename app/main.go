@@ -12,9 +12,7 @@ func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
 
-	// Seed the random generator so log output varies across runs.
-	rand.Seed(time.Now().UnixNano())
-
+	// In Go 1.20+, the random generator is automatically seeded.
 	levels := []slog.Level{slog.LevelInfo, slog.LevelError, slog.LevelDebug}
 	messages := []string{
 		"User logged in",

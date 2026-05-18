@@ -25,6 +25,19 @@ This project sets up a complete log aggregation pipeline using the Grafana Loki 
 4. Access Grafana at [http://localhost:3000](http://localhost:3000).
    *(Authentication is disabled, you will be automatically logged in as an Admin)*
 
+## Cloud / Remote Development
+
+This repository includes a VS Code Dev Container configuration so you can continue work from anywhere using GitHub Codespaces or a remote container host.
+
+1. Open the project in VS Code.
+2. Choose **Reopen in Container** or launch a Codespace.
+3. The container includes Go tooling and Docker support via `docker-in-docker`.
+4. From inside the container, run:
+   ```bash
+   docker compose up -d --build
+   ```
+5. Access Grafana on [http://localhost:3000](http://localhost:3000) from the forwarded ports.
+
 ## Viewing Logs
 
 1. In Grafana, navigate to the **Explore** view (the compass icon on the left sidebar).
