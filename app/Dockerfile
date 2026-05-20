@@ -8,7 +8,7 @@ COPY go.mod ./
 # Copy source code
 COPY main.go ./
 
-# Initialize go.sum by running go mod tidy
+# Download dependencies and generate go.sum
 RUN go mod tidy
 
 # Build the binary
