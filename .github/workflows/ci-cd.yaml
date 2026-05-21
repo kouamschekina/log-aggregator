@@ -282,10 +282,12 @@ jobs:
         working-directory: app
         run: go mod download
 
+      - name: Install gosec
+        run: go install github.com/securego/gosec/v2/cmd/gosec@v2.22.3
+
       - name: Run Gosec Security Scanner
-        uses: securego/gosec@v2.22.3
-        with:
-          args: ./app/...
+        working-directory: app
+        run: gosec ./...
 
       - name: Run Trivy vulnerability scanner (filesystem)
         uses: aquasecurity/trivy-action@v0.31.0
