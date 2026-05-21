@@ -58,15 +58,10 @@ open http://localhost:3000
 
 ### Option 2: Kubernetes Deployment
 
+> **Note:** Container images are automatically built and pushed to the GitHub Container Registry (GHCR) by the CI/CD pipeline. No manual Docker builds are required.
+
 ```bash
-# Build the log generator image
-docker build -t log-aggregator-log-generator:latest ./app
-
-# For k3s - import the image
-docker save log-aggregator-log-generator:latest -o log-generator.tar
-sudo k3s ctr images import log-generator.tar
-
-# Deploy using the provided script
+# Deploy using the provided script (pulls images from GHCR)
 chmod +x deploy-logs-only.sh
 ./deploy-logs-only.sh
 
@@ -225,13 +220,17 @@ This adds:
    kubectl describe pod -n logging <pod-name>
    ```
 
-2. **Image not found for log-generator**
-   ```bash
-   # Build and import the image
-   docker build -t log-aggregator-log-generator:latest ./app
-   docker save log-aggregator-log-generator:latest -o log-generator.tar
-   sudo k3s ctr images import log-generator.tar
-   ```
+2. **Image pull errors from GHCR**
+   - Ensure your Kubernetes cluster has the necessary permissions to pull images from `ghcr.io`
+   - For private repositories, configure an ImagePullSecret:
+     ```bash
+     kubectl create secret docker-registry ghcr-secret \
+       --docker-server=ghcr.io \
+       --docker-username=<github-username> \
+       --docker-password=<github-token> \
+       -n logging
+     ```
+   - Reference the secret in your deployment or service account
 
 3. **Grafana not accessible**
    ```bash
@@ -245,12 +244,15 @@ This adds:
 
 ## CI/CD Pipeline
 
-The project includes a GitHub Actions workflow (`.github/workflows/ci-cd.yaml`) for:
-- Linting and formatting checks
-- Unit tests with coverage
-- Docker image build
-- Security scanning
-- Kubernetes deployment
+The project includes a GitHub Actions workflow (`.github/workflows/ci-cd.yaml`) that automates the entire delivery process:
+
+- **Linting and formatting checks** - Code quality validation
+- **Unit tests with coverage** - Automated testing
+- **Security scanning (Trivy)** - Vulnerability assessment
+- **Image building and pushing to GHCR** - Container images are published to GitHub Container Registry
+- **Automated Kubernetes deployment** - Continuous deployment to the target cluster
+
+Images are tagged with both the commit SHA and `latest`, enabling rollback capabilities and consistent deployments.
 
 ## License
 
