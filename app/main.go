@@ -82,9 +82,9 @@ func init() {
 func metricsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-		
+
 		next.ServeHTTP(w, r)
-		
+
 		duration := time.Since(start).Seconds()
 		httpRequestDuration.WithLabelValues(r.URL.Path).Observe(duration)
 		httpRequestsTotal.WithLabelValues(r.URL.Path, r.Method).Inc()
@@ -109,7 +109,7 @@ func main() {
 				logger.Error("Failed to write health response", "error", err)
 			}
 		})
-		
+
 		logger.Info("Starting metrics server", "port", 8080)
 		if err := http.ListenAndServe(":8080", metricsMiddleware(mux)); err != nil {
 			logger.Error("Metrics server failed", "error", err)
@@ -148,7 +148,7 @@ func main() {
 
 		level := levels[rng.Intn(len(levels))]
 		msg := messages[rng.Intn(len(messages))]
-		
+
 		// Add some extra contextual data randomly
 		userID := rng.Intn(1000)
 		latency := time.Duration(rng.Intn(500)) * time.Millisecond
