@@ -11,10 +11,10 @@ on:
       - develop
 
 env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository_owner }}/log-generator
   GO_VERSION: '1.21'
-  ACTIONS_ALLOW_UNSECURE_NODE_VERSION: 'true'
 
 jobs:
   # Lint and format check
