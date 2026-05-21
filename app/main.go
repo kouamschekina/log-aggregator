@@ -1,8 +1,9 @@
 package main
 
 import (
+	cryptoRand "crypto/rand"
 	"log/slog"
-	"math/rand"
+	"math/big"
 	"net/http"
 	"os"
 	"time"
@@ -91,15 +92,25 @@ func metricsMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+// secureRandInt generates a cryptographically secure random integer in range [0, n)
+func secureRandInt(n int) int {
+	if n <= 0 {
+		return 0
+	}
+	result, err := cryptoRand.Int(cryptoRand.Reader, big.NewInt(int64(n)))
+	if err != nil {
+		// Fallback to timestamp-based value if crypto/rand fails
+		return int(time.Now().UnixNano() % int64(n))
+	}
+	return int(result.Int64())
+}
+
 func main() {
 	// Configure JSON logger to stdout
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
 
-	// Create a local random generator with a seed based on current time.
-	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
-
-	// Start HTTP server for Prometheus metrics
+	// Start HTTP server for Prometheus metrics with proper timeouts
 	go func() {
 		mux := http.NewServeMux()
 		mux.Handle("/metrics", promhttp.Handler())
@@ -110,8 +121,16 @@ func main() {
 			}
 		})
 
+		server := &http.Server{
+			Addr:         ":8080",
+			Handler:      metricsMiddleware(mux),
+			ReadTimeout:  10 * time.Second,
+			WriteTimeout: 10 * time.Second,
+			IdleTimeout:  60 * time.Second,
+		}
+
 		logger.Info("Starting metrics server", "port", 8080)
-		if err := http.ListenAndServe(":8080", metricsMiddleware(mux)); err != nil {
+		if err := server.ListenAndServe(); err != nil {
 			logger.Error("Metrics server failed", "error", err)
 			errorsTotal.WithLabelValues("metrics_server").Inc()
 		}
@@ -136,7 +155,7 @@ func main() {
 
 	for {
 		// Simulate connection changes
-		connectionChange := rng.Intn(10) - 5 // -5 to +5
+		connectionChange := secureRandInt(10) - 5 // -5 to +5
 		connectionCount += connectionChange
 		if connectionCount < 0 {
 			connectionCount = 0
@@ -146,19 +165,19 @@ func main() {
 		// Measure log processing time
 		start := time.Now()
 
-		level := levels[rng.Intn(len(levels))]
-		msg := messages[rng.Intn(len(messages))]
+		level := levels[secureRandInt(len(levels))]
+		msg := messages[secureRandInt(len(messages))]
 
 		// Add some extra contextual data randomly
-		userID := rng.Intn(1000)
-		latency := time.Duration(rng.Intn(500)) * time.Millisecond
+		userID := secureRandInt(1000)
+		latency := time.Duration(secureRandInt(500)) * time.Millisecond
 
 		switch level {
 		case slog.LevelInfo:
 			logger.Info(msg, "user_id", userID, "latency", latency.String())
 			logMessagesTotal.WithLabelValues("info").Inc()
 		case slog.LevelError:
-			logger.Error(msg, "user_id", userID, "error_code", rng.Intn(500)+500)
+			logger.Error(msg, "user_id", userID, "error_code", secureRandInt(500)+500)
 			logMessagesTotal.WithLabelValues("error").Inc()
 			errorsTotal.WithLabelValues("application").Inc()
 		case slog.LevelDebug:
@@ -171,7 +190,7 @@ func main() {
 		logLatencySeconds.Observe(processingTime)
 
 		// Sleep between 0.5s and 2s
-		sleepDuration := time.Duration(rng.Intn(1500)+500) * time.Millisecond
+		sleepDuration := time.Duration(secureRandInt(1500)+500) * time.Millisecond
 		time.Sleep(sleepDuration)
 	}
 }
