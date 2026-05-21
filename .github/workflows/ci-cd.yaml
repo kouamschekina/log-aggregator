@@ -277,7 +277,7 @@ jobs:
           args: ./app/...
 
       - name: Run Trivy vulnerability scanner (filesystem)
-        uses: aquasecurity/trivy-action@v0.30.0
+        uses: aquasecurity/trivy-action@v0.31.0
         with:
           scan-type: 'fs'
           scan-ref: 'app'
