@@ -96,8 +96,8 @@ func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
 
-	// Seed the random generator so log output varies across runs.
-	rand.Seed(time.Now().UnixNano())
+	// Create a local random generator with a seed based on current time.
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 
 	// Start HTTP server for Prometheus metrics
 	go func() {
@@ -105,7 +105,9 @@ func main() {
 		mux.Handle("/metrics", promhttp.Handler())
 		mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte("OK"))
+			if _, err := w.Write([]byte("OK")); err != nil {
+				logger.Error("Failed to write health response", "error", err)
+			}
 		})
 		
 		logger.Info("Starting metrics server", "port", 8080)
@@ -134,7 +136,7 @@ func main() {
 
 	for {
 		// Simulate connection changes
-		connectionChange := rand.Intn(10) - 5 // -5 to +5
+		connectionChange := rng.Intn(10) - 5 // -5 to +5
 		connectionCount += connectionChange
 		if connectionCount < 0 {
 			connectionCount = 0
@@ -144,19 +146,19 @@ func main() {
 		// Measure log processing time
 		start := time.Now()
 
-		level := levels[rand.Intn(len(levels))]
-		msg := messages[rand.Intn(len(messages))]
+		level := levels[rng.Intn(len(levels))]
+		msg := messages[rng.Intn(len(messages))]
 		
 		// Add some extra contextual data randomly
-		userID := rand.Intn(1000)
-		latency := time.Duration(rand.Intn(500)) * time.Millisecond
+		userID := rng.Intn(1000)
+		latency := time.Duration(rng.Intn(500)) * time.Millisecond
 
 		switch level {
 		case slog.LevelInfo:
 			logger.Info(msg, "user_id", userID, "latency", latency.String())
 			logMessagesTotal.WithLabelValues("info").Inc()
 		case slog.LevelError:
-			logger.Error(msg, "user_id", userID, "error_code", rand.Intn(500)+500)
+			logger.Error(msg, "user_id", userID, "error_code", rng.Intn(500)+500)
 			logMessagesTotal.WithLabelValues("error").Inc()
 			errorsTotal.WithLabelValues("application").Inc()
 		case slog.LevelDebug:
@@ -169,7 +171,7 @@ func main() {
 		logLatencySeconds.Observe(processingTime)
 
 		// Sleep between 0.5s and 2s
-		sleepDuration := time.Duration(rand.Intn(1500)+500) * time.Millisecond
+		sleepDuration := time.Duration(rng.Intn(1500)+500) * time.Millisecond
 		time.Sleep(sleepDuration)
 	}
 }
