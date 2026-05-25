@@ -7,6 +7,8 @@ services:
   log-generator:
     build: ./app
     container_name: log-generator
+    ports:
+      - "8080:8080"
     networks:
       - loki-stack
     restart: unless-stopped
@@ -15,6 +17,41 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+  prometheus:
+    image: prom/prometheus:v2.48.0
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./config/prometheus.yaml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+      - --web.enable-lifecycle
+    networks:
+      - loki-stack
+    restart: unless-stopped
+
+  node-exporter:
+    image: prom/node-exporter:v1.7.0
+    container_name: node-exporter
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
+      - --path.rootfs=/rootfs
+      - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
+    networks:
+      - loki-stack
+    restart: unless-stopped
 
   loki:
     image: grafana/loki:latest
@@ -50,6 +87,7 @@ services:
       - "3000:3000"
     volumes:
       - ./config/grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml
+      - ./config/dashboards:/etc/grafana/provisioning/dashboards
       - grafana-data:/var/lib/grafana
     environment:
       - GF_AUTH_ANONYMOUS_ENABLED=true
@@ -60,7 +98,9 @@ services:
     restart: unless-stopped
     depends_on:
       - loki
+      - prometheus
 
 volumes:
   loki-data:
   grafana-data:
+  prometheus-data:
