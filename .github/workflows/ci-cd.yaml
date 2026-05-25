@@ -160,6 +160,10 @@ jobs:
       - name: Configure Kubernetes credentials
         run: |
           set -euo pipefail
+          if [ -z "$KUBE_CONFIG" ]; then
+            echo "::error::KUBE_CONFIG secret is not set or is empty"
+            exit 1
+          fi
           mkdir -p ~/.kube
           echo "$KUBE_CONFIG" | base64 -d > ~/.kube/config
           chmod 600 ~/.kube/config
@@ -289,15 +293,18 @@ jobs:
         working-directory: app
         run: gosec ./...
 
+      - name: Install Trivy
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget apt-transport-https gnupg
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo gpg --dearmor -o /usr/share/keyrings/trivy.gpg
+          echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update
+          sudo apt-get install -y trivy
+
       - name: Run Trivy vulnerability scanner (filesystem)
-        uses: aquasecurity/trivy-action@v0.31.0
-        with:
-          scan-type: 'fs'
-          scan-ref: 'app'
-          format: 'table'
-          exit-code: '1'
-          ignore-unfixed: true
-          severity: 'CRITICAL,HIGH'
+        run: |
+          trivy fs --severity CRITICAL,HIGH --ignore-unfixed --exit-code 1 app
 
   # Notify on success or failure
   notify:
