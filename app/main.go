@@ -136,6 +136,8 @@ func main() {
 		}
 	}()
 
+	// In Go 1.20+, the random generator is automatically seeded.
+
 	levels := []slog.Level{slog.LevelInfo, slog.LevelError, slog.LevelDebug}
 	messages := []string{
 		"User logged in",
