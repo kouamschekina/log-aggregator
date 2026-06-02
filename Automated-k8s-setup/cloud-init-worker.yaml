@@ -1,0 +1,45 @@
+#cloud-config
+packages:
+  - curl
+  - git
+  - apt-transport-https
+  - ca-certificates
+  - gnupg
+  - jq
+  - nfs-common
+write_files:
+  - path: /usr/local/bin/install-k3s-agent.sh
+    permissions: '0755'
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+      if systemctl is-active --quiet k3s-agent; then
+        exit 0
+      fi
+      SERVER_IP=$${SERVER_IP:-}
+      if [[ -z "$${SERVER_IP}" ]]; then
+        SERVER_IP=$(getent hosts k3s-master | awk '{print $1}' || true)
+      fi
+      if [[ -z "$${SERVER_IP}" ]]; then
+        echo "SERVER_IP not resolvable" >&2
+        exit 1
+      fi
+      if [[ -z "$${K3S_TOKEN}" ]]; then
+        echo "K3S_TOKEN not set" >&2
+        exit 1
+      fi
+      if [[ -n "$${K3S_VERSION}" ]]; then
+        export INSTALL_K3S_VERSION="$${K3S_VERSION}"
+      fi
+      # Wait for server API to be reachable
+      echo "Waiting for https://$${SERVER_IP}:6443 ..."
+      for i in {1..60}; do
+        if timeout 2 bash -lc "</dev/tcp/$${SERVER_IP}/6443" 2>/dev/null; then
+          break
+        fi
+        sleep 5
+      done
+      timeout 2 bash -lc "</dev/tcp/$${SERVER_IP}/6443" 2>/dev/null || { echo "Server API not reachable" >&2; exit 1; }
+      curl -sfL https://get.k3s.io | K3S_URL="https://$${SERVER_IP}:6443" K3S_TOKEN="$${K3S_TOKEN}" sh -
+runcmd:
+  - [ bash, -lc, 'export K3S_TOKEN="${K3S_TOKEN}" K3S_VERSION="${K3S_VERSION}" SERVER_IP="${SERVER_IP}"; sudo -E bash /usr/local/bin/install-k3s-agent.sh' ]
