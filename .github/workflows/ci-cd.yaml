@@ -11,10 +11,10 @@ on:
       - develop
 
 env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository_owner }}/log-generator
   GO_VERSION: '1.21'
-  ACTIONS_ALLOW_UNSECURE_NODE_VERSION: 'true'
 
 jobs:
   # Lint and format check
@@ -160,6 +160,10 @@ jobs:
       - name: Configure Kubernetes credentials
         run: |
           set -euo pipefail
+          if [ -z "$KUBE_CONFIG" ]; then
+            echo "::error::KUBE_CONFIG secret is not set or is empty"
+            exit 1
+          fi
           mkdir -p ~/.kube
           echo "$KUBE_CONFIG" | base64 -d > ~/.kube/config
           chmod 600 ~/.kube/config
@@ -193,6 +197,11 @@ jobs:
         id: deploy
         run: |
           set -euo pipefail
+          # INTENTIONAL FAILURE FOR DEMONSTRATION - Simulating deployment failure
+          echo "::error::Simulating deployment failure for rollback demonstration"
+          kubectl apply -f "k8s/non-existent-manifest-for-rollback-demo.yaml" || true
+          exit 1
+          # END INTENTIONAL FAILURE
           manifests=(
             "k8s/00-namespace.yaml"
             "k8s/01-loki.yaml"
@@ -271,20 +280,36 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4.2.2
 
-      - name: Run Gosec Security Scanner
-        uses: securego/gosec@v2.22.3
+      - name: Set up Go
+        uses: actions/setup-go@v5.3.0
         with:
-          args: ./app/...
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: app/go.sum
+          cache: true
+
+      - name: Download Go modules
+        working-directory: app
+        run: go mod download
+
+      - name: Install gosec
+        run: go install github.com/securego/gosec/v2/cmd/gosec@v2.22.3
+
+      - name: Run Gosec Security Scanner
+        working-directory: app
+        run: gosec ./...
+
+      - name: Install Trivy
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget apt-transport-https gnupg
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo gpg --dearmor -o /usr/share/keyrings/trivy.gpg
+          echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update
+          sudo apt-get install -y trivy
 
       - name: Run Trivy vulnerability scanner (filesystem)
-        uses: aquasecurity/trivy-action@v0.30.0
-        with:
-          scan-type: 'fs'
-          scan-ref: 'app'
-          format: 'table'
-          exit-code: '1'
-          ignore-unfixed: true
-          severity: 'CRITICAL,HIGH'
+        run: |
+          trivy fs --severity CRITICAL,HIGH --ignore-unfixed --exit-code 1 app
 
   # Notify on success or failure
   notify:
