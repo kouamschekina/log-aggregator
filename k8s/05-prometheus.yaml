@@ -45,8 +45,10 @@ data:
       evaluation_interval: 15s
       external_labels:
         monitor: 'log-aggregator'
+        cluster: 'your-cluster-name'   # ← Recommended
 
     scrape_configs:
+
     # Prometheus self-monitoring
     - job_name: 'prometheus'
       static_configs:
@@ -56,11 +58,11 @@ data:
     - job_name: 'node-exporter'
       kubernetes_sd_configs:
         - role: endpoints
-          namespaces:
-            names:
-              - logging
       relabel_configs:
-        - source_labels: [__meta_kubernetes_endpoints_name]
+        - source_labels: [__meta_kubernetes_namespace]
+          action: keep
+          regex: logging
+        - source_labels: [__meta_kubernetes_service_label_app]
           action: keep
           regex: node-exporter
 
@@ -68,30 +70,33 @@ data:
     - job_name: 'kube-state-metrics'
       kubernetes_sd_configs:
         - role: endpoints
-          namespaces:
-            names:
-              - logging
       relabel_configs:
-        - source_labels: [__meta_kubernetes_endpoints_name]
+        - source_labels: [__meta_kubernetes_namespace]
+          action: keep
+          regex: logging
+        - source_labels: [__meta_kubernetes_service_label_app]
           action: keep
           regex: kube-state-metrics
 
-    # Log generator application
+    # Log Generator Application
     - job_name: 'log-generator'
       kubernetes_sd_configs:
         - role: pod
           namespaces:
-            names:
-              - logging
+            names: [logging]
       relabel_configs:
         - source_labels: [__meta_kubernetes_pod_label_app]
           action: keep
           regex: log-generator
-        - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_port]
+
+        # Correct way to build address from pod IP + port annotation
+        - source_labels: [__meta_kubernetes_pod_ip, __meta_kubernetes_pod_annotation_prometheus_io_port]
           action: replace
+          regex: '(.+);(.+)'
+          replacement: '$1:$2'
           target_label: __address__
-          regex: (.+)
-          replacement: ${1}:8080
+
+        # Metrics path
         - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
           action: replace
           target_label: __metrics_path__
@@ -117,22 +122,33 @@ spec:
         app: prometheus
     spec:
       serviceAccountName: prometheus
+      
+      securityContext:
+        runAsUser: 65534
+        runAsGroup: 65534
+        fsGroup: 65534
+      
       containers:
       - name: prometheus
-        image: prom/prometheus:v2.48.0
+        image: prom/prometheus:v2.53.0          # Updated
         ports:
         - containerPort: 9090
           name: http-metrics
+
         args:
         - --config.file=/etc/prometheus/prometheus.yml
         - --storage.tsdb.path=/prometheus
         - --storage.tsdb.retention.time=15d
         - --web.enable-lifecycle
+        - --web.console.libraries=/etc/prometheus/console_libraries
+        - --web.console.templates=/etc/prometheus/consoles
+
         volumeMounts:
         - name: prometheus-config
           mountPath: /etc/prometheus/
         - name: prometheus-data
           mountPath: /prometheus
+
         resources:
           requests:
             cpu: 100m
@@ -140,15 +156,32 @@ spec:
           limits:
             cpu: 500m
             memory: 512Mi
+
+        livenessProbe:
+          httpGet:
+            path: /-/healthy
+            port: 9090
+          initialDelaySeconds: 30
+          periodSeconds: 10
+
+        readinessProbe:
+          httpGet:
+            path: /-/ready
+            port: 9090
+          initialDelaySeconds: 30
+          periodSeconds: 10
+
       volumes:
       - name: prometheus-config
         configMap:
           name: prometheus-config
+
   volumeClaimTemplates:
   - metadata:
       name: prometheus-data
     spec:
       accessModes: ["ReadWriteOnce"]
+      storageClassName: local-path
       resources:
         requests:
           storage: 5Gi
