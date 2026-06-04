@@ -32,3 +32,15 @@ data/
 
 # General logs
 *.log
+
+# Terraform
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfplan
+.terraform/
+.terraform.lock.hcl
+
+# Generated files
+rendered-*.yaml
+k3s-kubeconfig.yaml

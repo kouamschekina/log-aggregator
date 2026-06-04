@@ -1,0 +1,38 @@
+#cloud-config
+packages:
+  - curl
+  - git
+  - apt-transport-https
+  - ca-certificates
+  - gnupg
+  - jq
+  - nfs-common
+  - docker.io
+write_files:
+  - path: /usr/local/bin/install-k9s.sh
+    permissions: '0755'
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+      echo "Installing k9s..."
+      curl -sS https://webinstall.dev/k9s | bash
+      echo "k9s installation complete"
+  - path: /usr/local/bin/install-k3s-server.sh
+    permissions: '0755'
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+      if systemctl is-active --quiet k3s; then
+        exit 0
+      fi
+      if [[ -n "$${K3S_VERSION}" ]]; then
+        export INSTALL_K3S_VERSION="$${K3S_VERSION}"
+      fi
+      export K3S_TOKEN="$${K3S_TOKEN}"
+      curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="server --write-kubeconfig-mode 644 --token $${K3S_TOKEN}" sh -
+      mkdir -p /home/ubuntu/.kube
+      cp /etc/rancher/k3s/k3s.yaml /home/ubuntu/.kube/config
+      chown -R ubuntu:ubuntu /home/ubuntu/.kube
+runcmd:
+  - [ bash, -lc, 'export K3S_TOKEN="${K3S_TOKEN}" K3S_VERSION="${K3S_VERSION}"; sudo -E bash /usr/local/bin/install-k3s-server.sh' ]
+  - [ bash, -lc, 'sudo bash /usr/local/bin/install-k9s.sh' ]
