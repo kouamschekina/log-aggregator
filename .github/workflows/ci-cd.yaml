@@ -161,13 +161,9 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p ~/.kube
-          # We treat the secret as PLAIN TEXT, not base64.
-          # This removes the need for complex encoding.
-          echo "$KUBE_CONFIG" > ~/.kube/config
+          echo "$KUBE_CONFIG" | base64 -d > ~/.kube/config
           chmod 600 ~/.kube/config
-          
-          # Validation: This will print the first few lines to the logs
-          # so you can see if the file was created correctly.
+
           echo "Verifying config file..."
           head -n 5 ~/.kube/config
           
