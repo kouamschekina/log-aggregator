@@ -197,11 +197,6 @@ jobs:
         id: deploy
         run: |
           set -euo pipefail
-          # INTENTIONAL FAILURE FOR DEMONSTRATION - Simulating deployment failure
-          echo "::error::Simulating deployment failure for rollback demonstration"
-          kubectl apply -f "k8s/non-existent-manifest-for-rollback-demo.yaml" || true
-          exit 1
-          # END INTENTIONAL FAILURE
           manifests=(
             "k8s/00-namespace.yaml"
             "k8s/01-loki.yaml"
