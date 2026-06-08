@@ -133,16 +133,16 @@ jobs:
           cache-to: type=gha,mode=max
           platforms: linux/amd64,linux/arm64
 
-  # Deploy to Kubernetes (for main branch)
+  # Deploy to Kubernetes (for main and develop branches)
   deploy-k8s:
     name: Deploy to Kubernetes
     runs-on: ubuntu-latest
     needs: build
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: "(github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') && github.event_name == 'push'"
     environment:
-      name: production
+      name: "${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}"
     concurrency:
-      group: deploy-production
+      group: "${{ github.ref == 'refs/heads/main' && 'deploy-production' || 'deploy-development' }}"
       cancel-in-progress: false
     timeout-minutes: 15
     env:
@@ -168,6 +168,9 @@ jobs:
           echo "$KUBE_CONFIG" | base64 -d > ~/.kube/config
           chmod 600 ~/.kube/config
           kubectl config view --minify > /dev/null
+          if ! kubectl get nodes > /dev/null 2>&1; then
+            echo "::warning::kubectl get nodes failed — cluster may not be reachable, but proceeding with deployment"
+          fi
         env:
           KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
 
