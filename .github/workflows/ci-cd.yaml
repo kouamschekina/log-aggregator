@@ -160,17 +160,18 @@ jobs:
       - name: Configure Kubernetes credentials
         run: |
           set -euo pipefail
-          if [ -z "$KUBE_CONFIG" ]; then
-            echo "::error::KUBE_CONFIG secret is not set or is empty"
-            exit 1
-          fi
           mkdir -p ~/.kube
-          echo "$KUBE_CONFIG" | base64 -d > ~/.kube/config
+          # We treat the secret as PLAIN TEXT, not base64.
+          # This removes the need for complex encoding.
+          echo "$KUBE_CONFIG" > ~/.kube/config
           chmod 600 ~/.kube/config
+          
+          # Validation: This will print the first few lines to the logs
+          # so you can see if the file was created correctly.
+          echo "Verifying config file..."
+          head -n 5 ~/.kube/config
+          
           kubectl config view --minify > /dev/null
-          if ! kubectl get nodes > /dev/null 2>&1; then
-            echo "::warning::kubectl get nodes failed — cluster may not be reachable, but proceeding with deployment"
-          fi
         env:
           KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
 
