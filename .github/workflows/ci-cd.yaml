@@ -183,8 +183,9 @@ jobs:
           IMAGE_TAG="${REGISTRY}/${IMAGE_NAME}:${{ github.sha }}"
           echo "Updating image to: $IMAGE_TAG"
           cp k8s/04-log-generator.yaml k8s/04-log-generator.yaml.bak
-          sed -i "s|image: log-aggregator-log-generator:latest|image: ${IMAGE_TAG}|g" k8s/04-log-generator.yaml
-          if ! grep -q "$IMAGE_TAG" k8s/04-log-generator.yaml; then
+          # Replace the image value regardless of the previous registry/repo tag.
+          sed -i "s|image: .*|image: ${IMAGE_TAG}|" k8s/04-log-generator.yaml
+          if ! grep -Fq "${IMAGE_TAG}" k8s/04-log-generator.yaml; then
             echo "::error::Failed to update image tag in deployment manifest"
             exit 1
           fi
